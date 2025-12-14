@@ -10,7 +10,7 @@ from gui.items import PlaceItem, TransitionItem, ArcItem
 
 class Mode:
     # Classe pour les différents modes d'interaction dans la vue graphique
-    SELECT = 0       # Move tool
+    SELECT = 0  # Outil de sélection
     ADD_PLACE = 1
     ADD_TRANSITION = 2
     ADD_ARC = 3
@@ -25,7 +25,7 @@ class PetriGraphicsView(QGraphicsView):
         self.setScene(self.scene)
         self.setSceneRect(0, 0, 1000, 1000)
         self.setRenderHints(QPainter.Antialiasing)
-        self.mode = None
+        self.current_mode = Mode.SELECT
         self.temp_arc_start = None
 
     # Définit le mode d'ajout (place, transition, arc)
@@ -95,19 +95,19 @@ class MainWindow(QWidget):
         self.frame_button.setGeometry(720, 20, 280, 250)
         self.frame_button.setStyleSheet("background-color: #FFD166; border-radius: 10px;")
 
-        self.buttonPlace = QPushButton("Ajouter une place", self.frame_button)
+        self.buttonPlace = QPushButton("Add Place", self.frame_button)
         buttonPlace_font = QFont("Futura", 12)
         self.buttonPlace.setFont(buttonPlace_font)
         self.buttonPlace.setStyleSheet("background-color: #EF476F; border-radius: 10px;")
         self.buttonPlace.setGeometry(20, 20, 240, 40)
 
-        self.buttonTransition = QPushButton("Ajouter une Transition", self.frame_button)
+        self.buttonTransition = QPushButton("Add Transition", self.frame_button)
         buttonTransition_font = QFont("Futura", 12)
         self.buttonTransition.setFont(buttonTransition_font)
         self.buttonTransition.setStyleSheet("background-color: #EF476F; border-radius: 10px;")
         self.buttonTransition.setGeometry(20, 80, 240, 40)
 
-        self.buttonArc = QPushButton("Créer un Arc", self.frame_button)
+        self.buttonArc = QPushButton("Add Arc", self.frame_button)
         self.buttonArc.setGeometry(20, 140, 240, 40)
         buttonArc_font = QFont("Futura", 12)
         self.buttonArc.setFont(buttonArc_font)
