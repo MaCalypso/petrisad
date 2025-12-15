@@ -25,7 +25,7 @@ class PetriGraphicsView(QGraphicsView):
         self.setScene(self.scene)
         self.setSceneRect(0, 0, 1000, 1000)
         self.setRenderHints(QPainter.Antialiasing)
-        self.current_mode = Mode.SELECT
+        self.current_mode = 'place'
         self.temp_arc_start = None
 
     # Définit le mode d'ajout (place, transition, arc)
