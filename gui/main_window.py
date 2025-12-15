@@ -1,5 +1,5 @@
 # gui/main_window.py
-
+import math
 from PyQt5.QtWidgets import (QWidget, QFrame, QPushButton,
                              QFormLayout, QLabel, QSpinBox)
 from PyQt5.QtGui import QFont, QColor, QPalette, QPainter
@@ -32,6 +32,13 @@ class PetriGraphicsView(QGraphicsView):
     def set_mode(self, mode):
         self.mode = mode
         self.temp_arc_start = None
+        # Optionnel : changer le curseur pour indiquer le mode
+        if mode is None:
+            self.setDragMode(QGraphicsView.RubberBandDrag) # Permet la sélection de zone
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            self.setDragMode(QGraphicsView.NoDrag)
+            self.setCursor(Qt.CrossCursor) # Curseur "Cible" pour ajouter
 
     # Gère les clics de souris pour ajouter des éléments ou sélectionner
     def mousePressEvent(self, event):
@@ -83,6 +90,39 @@ class MainWindow(QWidget):
         super().__init__()
         self.net = petri_net
         self.sim = simulation
+        
+        # Variable pour suivre le bouton actif
+        self.active_button = None 
+
+        # Définition des styles pour réutilisation facile
+        # Style par défaut (Rose)
+        self.STYLE_DEFAULT = """
+            QPushButton {
+                background-color: #EF476F; 
+                border-radius: 10px; 
+                color: whit;
+                font-family: Futura;
+                font-size: 12pt;
+            }
+            QPushButton:hover {
+                background-color: #ff7096;
+            }
+        """
+        
+        # Style Actif (Gris foncé / Bordeaux)
+        self.STYLE_ACTIVE = """
+            QPushButton {
+                background-color: #710921; 
+                border-radius: 10px; 
+                color: white; 
+                font-weight: bold;
+                font-family: Futura;
+                font-size: 12pt;
+                border: 2px solid #EF476F;
+            }
+        """
+
+        
 
         self.initUI()
 
@@ -95,44 +135,83 @@ class MainWindow(QWidget):
         self.frame_button.setGeometry(720, 20, 280, 250)
         self.frame_button.setStyleSheet("background-color: #FFD166; border-radius: 10px;")
 
+        # --- Création des boutons (On applique le style par défaut au début) ---
+        
         self.buttonPlace = QPushButton("Ajouter une place", self.frame_button)
-        buttonPlace_font = QFont("Futura", 12)
-        self.buttonPlace.setFont(buttonPlace_font)
-        self.buttonPlace.setStyleSheet("background-color: #EF476F; border-radius: 10px;")
         self.buttonPlace.setGeometry(20, 20, 240, 40)
+        self.buttonPlace.setStyleSheet(self.STYLE_DEFAULT)
 
         self.buttonTransition = QPushButton("Ajouter une Transition", self.frame_button)
-        buttonTransition_font = QFont("Futura", 12)
-        self.buttonTransition.setFont(buttonTransition_font)
-        self.buttonTransition.setStyleSheet("background-color: #EF476F; border-radius: 10px;")
         self.buttonTransition.setGeometry(20, 80, 240, 40)
+        self.buttonTransition.setStyleSheet(self.STYLE_DEFAULT)
 
-        self.buttonArc = QPushButton("Créer un Arc", self.frame_button)
+        self.buttonArc = QPushButton("Ajouter un Arc", self.frame_button)
         self.buttonArc.setGeometry(20, 140, 240, 40)
-        buttonArc_font = QFont("Futura", 12)
-        self.buttonArc.setFont(buttonArc_font)
-        self.buttonArc.setStyleSheet("background-color: #EF476F; border-radius: 10px;")
+        self.buttonArc.setStyleSheet(self.STYLE_DEFAULT)
 
         # Info frame
         self.frame_info = QFrame(self)
-        self.frame_info.setGeometry(720, 290, 280, 300)
-        self.frame_info.setStyleSheet("background-color: #5393CA; border-radius: 10px;")
+        self.frame_info.setGeometry(720, 290, 280, 150)
+        self.frame_info.setStyleSheet("background-color: #FFD166; border-radius: 10px;")
         self.info_layout = QFormLayout(self.frame_info)
+
+        # Frame espace d'état 
+        self.frame_state = QFrame(self)
+        self.frame_state.setGeometry(720, 460, 280, 100)
+        self.frame_state.setStyleSheet("background-color: #FFD166; border-radius: 10px;")
+        self.state_layout = QFormLayout(self.frame_state)
+
+        self.buttonState = QPushButton("Génerer les espaces d'états", self.frame_state)
+        self.buttonState.setGeometry(20, 20, 240, 40)
+        self.buttonState.setStyleSheet(self.STYLE_DEFAULT)
+
+        
+       
+
 
         # view
         self.view = PetriGraphicsView(self)
         self.view.setParent(self)
         self.view.setGeometry(20, 20, 680, 760)
 
-        # connect buttons
-        self.buttonPlace.clicked.connect(lambda: self.view.set_mode('place'))
-        self.buttonTransition.clicked.connect(lambda: self.view.set_mode('transition'))
-        self.buttonArc.clicked.connect(lambda: self.view.set_mode('arc'))
+        # --- NOUVELLE LOGIQUE DE CONNEXION ---
+        # On passe le mode voulu ET le bouton lui-même à la fonction de gestion
+        self.buttonPlace.clicked.connect(lambda: self.handle_mode_click('place', self.buttonPlace))
+        self.buttonTransition.clicked.connect(lambda: self.handle_mode_click('transition', self.buttonTransition))
+        self.buttonArc.clicked.connect(lambda: self.handle_mode_click('arc', self.buttonArc))
 
-        # mapping visual->backend: store dict name->item
-        self.visual_places = {}   # name -> PlaceItem
+        # mapping visual->backend
+        self.visual_places = {}
         self.visual_transitions = {}
-        self.visual_arcs = []     # list of ArcItem
+        self.visual_arcs = []
+
+        
+
+    def handle_mode_click(self, mode, button):
+        """
+        Gère le clic sur un bouton de mode.
+        - Si le bouton était déjà actif -> On le désactive (mode None/Select).
+        - Si c'est un nouveau bouton -> On désactive l'ancien et active le nouveau.
+        """
+        # Cas 1 : On clique sur le bouton déjà actif (Désactivation)
+        if self.active_button == button:
+            self.view.set_mode(None)     # Retour au mode sélection par défaut
+            button.setStyleSheet(self.STYLE_DEFAULT) # Retour à la couleur rose
+            self.active_button = None    # Plus aucun bouton actif
+            print("Mode: Sélection / Déplacement")
+
+        # Cas 2 : On clique sur un nouveau bouton (Activation)
+        else:
+            # D'abord, on remet l'ancien bouton (s'il y en a un) en rose
+            if self.active_button:
+                self.active_button.setStyleSheet(self.STYLE_DEFAULT)
+            
+            # On active le nouveau
+            self.view.set_mode(mode)
+            
+            button.setStyleSheet(self.STYLE_ACTIVE) # Couleur grise/active
+            self.active_button = button # On mémorise que c'est lui l'actif
+            print(f"Mode: Ajout de {mode}")
 
     # ------- Controller methods (bridge GUI <-> backend) -------
     def create_place_at(self, x, y):
